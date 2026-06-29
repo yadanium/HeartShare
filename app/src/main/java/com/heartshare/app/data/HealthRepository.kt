@@ -57,7 +57,7 @@ class HealthRepository(private val context: Context) {
             latestSample?.let { sample ->
                 HeartRatePayload(
                     heartRate = sample.beatsPerMinute,
-                    timestamp = sample.time.toEpochMilli(),
+                    timestamp = System.currentTimeMillis(),
                     online = true
                 )
             }
