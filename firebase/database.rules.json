@@ -12,6 +12,11 @@
       ".write": true,
       ".validate": "newData.isNumber()"
     },
+    "sampleTimestamp": {
+      ".read": true,
+      ".write": true,
+      ".validate": "newData.isNumber()"
+    },
     "online": {
       ".read": true,
       ".write": true,

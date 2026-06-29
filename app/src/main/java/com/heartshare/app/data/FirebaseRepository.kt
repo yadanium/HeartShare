@@ -15,11 +15,15 @@ class FirebaseRepository(
             liveRef.updateChildren(
                 mapOf(
                     "heartRate" to payload.heartRate,
+                    "sampleTimestamp" to payload.sampleTimestamp,
                     "timestamp" to payload.timestamp,
                     "online" to payload.online
                 )
             ).await()
-            Log.d(TAG, "Heart rate sent: ${payload.heartRate} bpm")
+            Log.d(
+                TAG,
+                "Heart rate sent: ${payload.heartRate} bpm sample=${payload.sampleTimestamp} sync=${payload.timestamp}"
+            )
         } catch (exception: Exception) {
             Log.e(TAG, "Failed to send heart rate", exception)
             throw exception

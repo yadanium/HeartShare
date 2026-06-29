@@ -69,6 +69,7 @@ HeartShare/
 ```json
 {
   "heartRate": 78,
+  "sampleTimestamp": 1730000000000,
   "timestamp": 1730000000000,
   "online": true
 }

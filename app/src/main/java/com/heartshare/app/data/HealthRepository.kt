@@ -50,7 +50,7 @@ class HealthRepository(private val context: Context) {
                     ReadRecordsRequest(
                         recordType = HeartRateRecord::class,
                         timeRangeFilter = TimeRangeFilter.between(start, now),
-                        ascendingOrder = true,
+                        ascendingOrder = false,
                         pageSize = 1_000
                     )
                 )
@@ -67,6 +67,7 @@ class HealthRepository(private val context: Context) {
             }?.let { sample ->
                 HeartRatePayload(
                     heartRate = sample.beatsPerMinute,
+                    sampleTimestamp = sample.time.toEpochMilli(),
                     timestamp = System.currentTimeMillis(),
                     online = true
                 )

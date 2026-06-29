@@ -16,10 +16,12 @@ const bpmValue = document.getElementById("bpmValue");
 const statusPill = document.getElementById("statusPill");
 const statusText = document.getElementById("statusText");
 const updatedAt = document.getElementById("updatedAt");
+const sampleAt = document.getElementById("sampleAt");
 
 let currentBpm = 0;
 let targetBpm = 0;
 let latestTimestamp = 0;
+let latestSampleTimestamp = 0;
 let online = false;
 let hasReceivedValue = false;
 let animationFrameId = 0;
@@ -62,6 +64,7 @@ function formatRelativeTime(timestamp) {
 
 function updateStatusFromData() {
   updatedAt.textContent = formatRelativeTime(latestTimestamp);
+  sampleAt.textContent = formatRelativeTime(latestSampleTimestamp);
 
   if (!hasReceivedValue) {
     setStatus("waiting");
@@ -93,6 +96,7 @@ function applySnapshot(value) {
     hasReceivedValue = false;
     bpmValue.textContent = "Waiting...";
     latestTimestamp = 0;
+    latestSampleTimestamp = 0;
     online = false;
     updateStatusFromData();
     return;
@@ -100,9 +104,11 @@ function applySnapshot(value) {
 
   const nextBpm = Number(value.heartRate);
   const nextTimestamp = Number(value.timestamp);
+  const nextSampleTimestamp = Number(value.sampleTimestamp);
 
   online = Boolean(value.online);
   latestTimestamp = Number.isFinite(nextTimestamp) ? nextTimestamp : Date.now();
+  latestSampleTimestamp = Number.isFinite(nextSampleTimestamp) ? nextSampleTimestamp : latestTimestamp;
 
   if (Number.isFinite(nextBpm) && nextBpm > 0) {
     targetBpm = nextBpm;
