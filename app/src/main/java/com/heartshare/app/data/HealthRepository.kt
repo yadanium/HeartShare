@@ -38,15 +38,15 @@ class HealthRepository(private val context: Context) {
 
     suspend fun readLatestHeartRate(): HeartRatePayload? {
         val now = Instant.now()
-        val start = now.minus(1, ChronoUnit.DAYS)
+        val start = now.minus(10, ChronoUnit.MINUTES)
 
         return try {
             val response = client.readRecords(
                 ReadRecordsRequest(
                     recordType = HeartRateRecord::class,
                     timeRangeFilter = TimeRangeFilter.between(start, now),
-                    ascendingOrder = false,
-                    pageSize = 20
+                    ascendingOrder = true,
+                    pageSize = 1_000
                 )
             )
 
@@ -55,6 +55,10 @@ class HealthRepository(private val context: Context) {
                 .maxByOrNull { sample -> sample.time }
 
             latestSample?.let { sample ->
+                Log.d(
+                    TAG,
+                    "Latest Health Connect heart rate: ${sample.beatsPerMinute} bpm at ${sample.time}"
+                )
                 HeartRatePayload(
                     heartRate = sample.beatsPerMinute,
                     timestamp = System.currentTimeMillis(),
