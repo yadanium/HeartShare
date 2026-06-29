@@ -38,27 +38,33 @@ class HealthRepository(private val context: Context) {
 
     suspend fun readLatestHeartRate(): HeartRatePayload? {
         val now = Instant.now()
-        val start = now.minus(10, ChronoUnit.MINUTES)
+        val lookupWindows = listOf(
+            now.minus(10, ChronoUnit.MINUTES),
+            now.minus(2, ChronoUnit.HOURS),
+            now.minus(1, ChronoUnit.DAYS)
+        )
 
         return try {
-            val response = client.readRecords(
-                ReadRecordsRequest(
-                    recordType = HeartRateRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(start, now),
-                    ascendingOrder = true,
-                    pageSize = 1_000
+            lookupWindows.firstNotNullOfOrNull { start ->
+                val response = client.readRecords(
+                    ReadRecordsRequest(
+                        recordType = HeartRateRecord::class,
+                        timeRangeFilter = TimeRangeFilter.between(start, now),
+                        ascendingOrder = true,
+                        pageSize = 1_000
+                    )
                 )
-            )
 
-            val latestSample = response.records
-                .flatMap { record -> record.samples }
-                .maxByOrNull { sample -> sample.time }
-
-            latestSample?.let { sample ->
-                Log.d(
-                    TAG,
-                    "Latest Health Connect heart rate: ${sample.beatsPerMinute} bpm at ${sample.time}"
-                )
+                response.records
+                    .flatMap { record -> record.samples }
+                    .maxByOrNull { sample -> sample.time }
+                    ?.also { sample ->
+                        Log.d(
+                            TAG,
+                            "Latest Health Connect heart rate: ${sample.beatsPerMinute} bpm at ${sample.time}"
+                        )
+                    }
+            }?.let { sample ->
                 HeartRatePayload(
                     heartRate = sample.beatsPerMinute,
                     timestamp = System.currentTimeMillis(),

@@ -74,6 +74,7 @@ class HeartRateForegroundService : Service() {
                             firebaseRepository.sendHeartRate(payload)
                         } else {
                             Log.w(TAG, "No heart rate sample found")
+                            firebaseRepository.setOnline(true)
                         }
                     }
                 } catch (exception: Exception) {
