@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">HeartShare</string>
+    <string name="notification_channel_name">HeartShare Live</string>
+    <string name="notification_channel_description">Health Connectから心拍数を読み取りFirebaseへ送信します。</string>
+</resources>

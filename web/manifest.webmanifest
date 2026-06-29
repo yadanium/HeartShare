@@ -1,0 +1,19 @@
+{
+  "name": "HeartShare",
+  "short_name": "HeartShare",
+  "description": "Fitbit Inspire 3の心拍数をリアルタイムに共有するPWAです。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "./icons/heart-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "751019427212",
+    "project_id": "heartshare-a100d",
+    "storage_bucket": "heartshare-a100d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:751019427212:android:c122b1255730285b3742a9",
+        "android_client_info": {
+          "package_name": "com.heartshare.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjX1MzleRc7EGVmguxv4KsFlHTiaufRcE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

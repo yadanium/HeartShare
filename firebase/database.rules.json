@@ -1,0 +1,21 @@
+{
+  "rules": {
+    ".read": true,
+    ".write": false,
+    "heartRate": {
+      ".read": true,
+      ".write": true,
+      ".validate": "newData.isNumber() && newData.val() >= 20 && newData.val() <= 240"
+    },
+    "timestamp": {
+      ".read": true,
+      ".write": true,
+      ".validate": "newData.isNumber()"
+    },
+    "online": {
+      ".read": true,
+      ".write": true,
+      ".validate": "newData.isBoolean()"
+    }
+  }
+}
