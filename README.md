@@ -177,10 +177,9 @@ MainViewModel
 1. GitHubでリポジトリを開きます。
 2. `Settings` を開きます。
 3. `Pages` を開きます。
-4. `Build and deployment` のSourceで `Deploy from a branch` を選びます。
-5. Branchに `main`、folderに `/web` を選びます。
-6. Saveします。
-7. 数分後、表示されたURLを開きます。
+4. `Build and deployment` のSourceで `GitHub Actions` を選びます。
+5. `main` にpushすると `.github/workflows/pages.yml` が `web/` を自動公開します。
+6. 数分後、表示されたURLを開きます。
 
 公開前に必ず `web/script.js` のFirebase設定を実プロジェクトの値に差し替えてください。
 
