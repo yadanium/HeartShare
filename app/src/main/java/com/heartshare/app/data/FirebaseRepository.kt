@@ -12,17 +12,20 @@ class FirebaseRepository(
 
     suspend fun sendHeartRate(payload: HeartRatePayload) {
         try {
-            liveRef.updateChildren(
-                mapOf(
-                    "heartRate" to payload.heartRate,
-                    "sampleTimestamp" to payload.sampleTimestamp,
-                    "timestamp" to payload.timestamp,
-                    "online" to payload.online,
-                    "history/${payload.timestamp}/heartRate" to payload.heartRate,
-                    "history/${payload.timestamp}/sampleTimestamp" to payload.sampleTimestamp,
-                    "history/${payload.timestamp}/timestamp" to payload.timestamp
-                )
-            ).await()
+            val updates = mutableMapOf<String, Any?>(
+                "heartRate" to payload.heartRate,
+                "sampleTimestamp" to payload.sampleTimestamp,
+                "timestamp" to payload.timestamp,
+                "online" to payload.online
+            )
+
+            if (shouldAppendHistory(payload)) {
+                updates["history/${payload.timestamp}/heartRate"] = payload.heartRate
+                updates["history/${payload.timestamp}/sampleTimestamp"] = payload.sampleTimestamp
+                updates["history/${payload.timestamp}/timestamp"] = payload.timestamp
+            }
+
+            liveRef.updateChildren(updates).await()
             trimOldHistory(payload.timestamp)
             Log.d(
                 TAG,
@@ -64,6 +67,29 @@ class FirebaseRepository(
             }
         } catch (exception: Exception) {
             Log.e(TAG, "Failed to trim old history", exception)
+        }
+    }
+
+    private suspend fun shouldAppendHistory(payload: HeartRatePayload): Boolean {
+        return try {
+            val latestHistory = liveRef.child("history")
+                .orderByChild("timestamp")
+                .limitToLast(1)
+                .get()
+                .await()
+
+            val latestPoint = latestHistory.children.firstOrNull()
+            val latestHeartRate = latestPoint?.child("heartRate")?.getValue(Long::class.java)
+            val shouldAppend = latestHeartRate == null || latestHeartRate != payload.heartRate
+
+            if (!shouldAppend) {
+                Log.d(TAG, "Skipped unchanged history point: ${payload.heartRate} bpm")
+            }
+
+            shouldAppend
+        } catch (exception: Exception) {
+            Log.e(TAG, "Failed to inspect latest history; appending current point", exception)
+            true
         }
     }
 

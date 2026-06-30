@@ -32,6 +32,7 @@ let online = false;
 let hasReceivedValue = false;
 let animationFrameId = 0;
 let historyPoints = [];
+let shouldStickToLatest = true;
 
 function setBeatDuration(bpm) {
   if (!Number.isFinite(bpm) || bpm <= 0) return;
@@ -158,7 +159,7 @@ function formatClock(timestamp) {
 
 function drawHistoryChart() {
   const visibleWidth = chartScroller.clientWidth || 320;
-  const desiredCssWidth = Math.max(visibleWidth, Math.min(7200, historyPoints.length * 22));
+  const desiredCssWidth = Math.max(visibleWidth, 48 * 90);
   historyChart.style.width = `${desiredCssWidth}px`;
 
   const rect = historyChart.getBoundingClientRect();
@@ -202,14 +203,23 @@ function drawHistoryChart() {
   }
 
   const rates = historyPoints.map(point => point.heartRate);
-  const minRate = Math.max(20, Math.floor(Math.min(...rates) / 5) * 5 - 5);
-  const maxRate = Math.min(240, Math.ceil(Math.max(...rates) / 5) * 5 + 5);
+  const rawMinRate = Math.min(...rates);
+  const rawMaxRate = Math.max(...rates);
+  const midpoint = (rawMinRate + rawMaxRate) / 2;
+  const visibleSpan = Math.max(12, rawMaxRate - rawMinRate + 8);
+  const minRate = Math.max(20, Math.floor((midpoint - visibleSpan / 2) / 2) * 2);
+  const maxRate = Math.min(240, Math.ceil((midpoint + visibleSpan / 2) / 2) * 2);
   const rateSpan = Math.max(1, maxRate - minRate);
 
-  const xFor = index => padding.left + (innerWidth * index) / (historyPoints.length - 1);
+  const windowEnd = Date.now();
+  const windowStart = windowEnd - HISTORY_WINDOW_MILLIS;
+  const xForTime = timestamp => {
+    const ratio = Math.max(0, Math.min(1, (timestamp - windowStart) / HISTORY_WINDOW_MILLIS));
+    return padding.left + innerWidth * ratio;
+  };
   const yFor = rate => padding.top + innerHeight - ((rate - minRate) / rateSpan) * innerHeight;
-  const pointFor = (point, index) => ({
-    x: xFor(index),
+  const pointFor = point => ({
+    x: xForTime(point.timestamp),
     y: yFor(point.heartRate)
   });
 
@@ -225,8 +235,8 @@ function drawHistoryChart() {
 
   const points = historyPoints.map(pointFor);
   drawSmoothPath(points);
-  chartContext.lineTo(xFor(historyPoints.length - 1), padding.top + innerHeight);
-  chartContext.lineTo(xFor(0), padding.top + innerHeight);
+  chartContext.lineTo(points[points.length - 1].x, padding.top + innerHeight);
+  chartContext.lineTo(points[0].x, padding.top + innerHeight);
   chartContext.closePath();
   chartContext.fillStyle = gradient;
   chartContext.fill();
@@ -241,7 +251,7 @@ function drawHistoryChart() {
   chartContext.stroke();
 
   const latest = historyPoints[historyPoints.length - 1];
-  const latestX = xFor(historyPoints.length - 1);
+  const latestX = xForTime(latest.timestamp);
   const latestY = yFor(latest.heartRate);
   chartContext.shadowBlur = 18;
   chartContext.fillStyle = "#ffffff";
@@ -253,22 +263,26 @@ function drawHistoryChart() {
   chartContext.fillStyle = "rgba(255, 255, 255, 0.64)";
   chartContext.font = "10px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
   chartContext.textAlign = "center";
-  const labelEvery = Math.max(1, Math.ceil(historyPoints.length / Math.max(4, Math.floor(cssWidth / 88))));
+  const labelEvery = Math.max(1, Math.ceil(historyPoints.length / Math.max(6, Math.floor(cssWidth / 92))));
   historyPoints.forEach((point, index) => {
     if (index !== 0 && index !== historyPoints.length - 1 && index % labelEvery !== 0) return;
-    const x = xFor(index);
+    const x = xForTime(point.timestamp);
     const y = yFor(point.heartRate);
     chartContext.fillStyle = "rgba(255, 255, 255, 0.9)";
     chartContext.beginPath();
-    chartContext.arc(x, y, 2.6, 0, Math.PI * 2);
+    chartContext.arc(x, y, 3.4, 0, Math.PI * 2);
     chartContext.fill();
     chartContext.fillStyle = "rgba(255, 255, 255, 0.62)";
     chartContext.fillText(formatClock(point.sampleTimestamp || point.timestamp), x, padding.top + innerHeight + 20);
+    chartContext.fillStyle = "rgba(255, 255, 255, 0.86)";
+    chartContext.fillText(`${Math.round(point.heartRate)}`, x, Math.max(12, y - 9));
   });
 
   const first = historyPoints[0];
   chartRange.textContent = `${formatClock(first.timestamp)} - ${formatClock(latest.timestamp)}`;
-  chartScroller.scrollLeft = chartScroller.scrollWidth;
+  if (shouldStickToLatest) {
+    chartScroller.scrollLeft = chartScroller.scrollWidth;
+  }
   chartContext.restore();
 }
 
@@ -327,6 +341,10 @@ function boot() {
   renderBpm();
   setInterval(updateStatusFromData, 1_000);
   window.addEventListener("resize", drawHistoryChart);
+  chartScroller.addEventListener("scroll", () => {
+    const distanceFromRight = chartScroller.scrollWidth - chartScroller.clientWidth - chartScroller.scrollLeft;
+    shouldStickToLatest = distanceFromRight < 24;
+  });
 }
 
 if ("serviceWorker" in navigator) {
