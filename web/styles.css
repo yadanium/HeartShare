@@ -218,10 +218,21 @@ body {
   text-align: right;
 }
 
-#historyChart {
+#historyChart,
+#axisChart {
   width: 100%;
   height: 180px;
   display: block;
+}
+
+.chart-body {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: stretch;
+}
+
+#axisChart {
+  width: 48px;
 }
 
 .chart-scroller {
@@ -290,6 +301,10 @@ body {
   }
 
   #historyChart {
+    height: 170px;
+  }
+
+  #axisChart {
     height: 170px;
   }
 }

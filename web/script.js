@@ -19,7 +19,9 @@ const updatedAt = document.getElementById("updatedAt");
 const sampleAt = document.getElementById("sampleAt");
 const chartRange = document.getElementById("chartRange");
 const chartScroller = document.getElementById("chartScroller");
+const axisChart = document.getElementById("axisChart");
 const historyChart = document.getElementById("historyChart");
+const axisContext = axisChart.getContext("2d");
 const chartContext = historyChart.getContext("2d");
 
 const HISTORY_WINDOW_MILLIS = 48 * 60 * 60 * 1000;
@@ -172,22 +174,33 @@ function drawHistoryChart() {
   historyChart.style.width = `${desiredCssWidth}px`;
 
   const rect = historyChart.getBoundingClientRect();
+  const axisRect = axisChart.getBoundingClientRect();
   const pixelRatio = window.devicePixelRatio || 1;
   const width = Math.max(1, Math.floor(rect.width * pixelRatio));
   const height = Math.max(1, Math.floor(rect.height * pixelRatio));
+  const axisWidth = Math.max(1, Math.floor(axisRect.width * pixelRatio));
+  const axisHeight = Math.max(1, Math.floor(axisRect.height * pixelRatio));
 
   if (historyChart.width !== width || historyChart.height !== height) {
     historyChart.width = width;
     historyChart.height = height;
   }
+  if (axisChart.width !== axisWidth || axisChart.height !== axisHeight) {
+    axisChart.width = axisWidth;
+    axisChart.height = axisHeight;
+  }
 
   chartContext.clearRect(0, 0, width, height);
+  axisContext.clearRect(0, 0, axisWidth, axisHeight);
   chartContext.save();
+  axisContext.save();
   chartContext.scale(pixelRatio, pixelRatio);
+  axisContext.scale(pixelRatio, pixelRatio);
 
   const cssWidth = width / pixelRatio;
   const cssHeight = height / pixelRatio;
-  const padding = { top: 26, right: 24, bottom: 48, left: 48 };
+  const axisCssWidth = axisWidth / pixelRatio;
+  const padding = { top: 26, right: 24, bottom: 48, left: 10 };
   const innerWidth = cssWidth - padding.left - padding.right;
   const innerHeight = cssHeight - padding.top - padding.bottom;
 
@@ -207,6 +220,7 @@ function drawHistoryChart() {
     chartContext.textAlign = "center";
     chartContext.fillText("履歴を収集中", cssWidth / 2, cssHeight / 2);
     chartRange.textContent = "履歴待ち";
+    axisContext.restore();
     chartContext.restore();
     return;
   }
@@ -232,7 +246,7 @@ function drawHistoryChart() {
     y: yFor(point.heartRate)
   });
 
-  drawYAxisLabels({ padding, innerHeight, minRate, maxRate });
+  drawYAxisLabels({ axisCssWidth, padding, innerHeight, minRate, maxRate });
 
   const gradient = chartContext.createLinearGradient(0, padding.top, 0, padding.top + innerHeight);
   gradient.addColorStop(0, "rgba(255, 45, 85, 0.34)");
@@ -279,28 +293,34 @@ function drawHistoryChart() {
   if (shouldStickToLatest) {
     chartScroller.scrollLeft = chartScroller.scrollWidth;
   }
+  axisContext.restore();
   chartContext.restore();
 }
 
-function drawYAxisLabels({ padding, innerHeight, minRate, maxRate }) {
-  chartContext.save();
-  chartContext.shadowBlur = 0;
-  chartContext.fillStyle = "rgba(255, 255, 255, 0.54)";
-  chartContext.font = "10px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-  chartContext.textAlign = "right";
-  chartContext.textBaseline = "middle";
+function drawYAxisLabels({ axisCssWidth, padding, innerHeight, minRate, maxRate }) {
+  axisContext.save();
+  axisContext.shadowBlur = 0;
+  axisContext.fillStyle = "rgba(255, 255, 255, 0.58)";
+  axisContext.font = "10px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  axisContext.textAlign = "right";
+  axisContext.textBaseline = "middle";
 
   const ticks = [maxRate, Math.round((maxRate + minRate) / 2), minRate];
   ticks.forEach((tick, index) => {
     const y = padding.top + (innerHeight / 2) * index;
-    chartContext.fillText(`${tick} bpm`, padding.left - 8, y);
+    axisContext.fillText(String(tick), axisCssWidth - 5, y);
   });
 
-  chartContext.fillStyle = "rgba(255, 255, 255, 0.72)";
-  chartContext.textAlign = "left";
-  chartContext.textBaseline = "top";
-  chartContext.fillText("bpm", padding.left, 6);
-  chartContext.restore();
+  axisContext.fillStyle = "rgba(255, 255, 255, 0.74)";
+  axisContext.textAlign = "right";
+  axisContext.textBaseline = "top";
+  axisContext.fillText("bpm", axisCssWidth - 5, 6);
+  axisContext.strokeStyle = "rgba(255, 255, 255, 0.16)";
+  axisContext.beginPath();
+  axisContext.moveTo(axisCssWidth - 1, padding.top);
+  axisContext.lineTo(axisCssWidth - 1, padding.top + innerHeight);
+  axisContext.stroke();
+  axisContext.restore();
 }
 
 function drawPointLabels({ points, historyPoints, padding, innerHeight, chartHeight }) {
