@@ -1,6 +1,6 @@
 # HeartShare
 
-HeartShareは、Fitbit Inspire 3の心拍数をFitbitアプリからHealth Connectへ同期し、Androidアプリで最新の心拍数を読み取ってFirebase Realtime Databaseへ送信するアプリです。恋人や家族はWebページのURLを開くだけで、リアルタイムの心拍数を見られます。
+HeartShareは、Fitbit Inspire 3の心拍数をFitbitアプリからHealth Connectへ同期し、Androidアプリで最新の心拍数を読み取ってFirebase Realtime Databaseへ送信するアプリです。WebページのURLを開くだけで、リアルタイムの心拍数を見られます。
 
 ## 構成
 
