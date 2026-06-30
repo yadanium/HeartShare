@@ -26,7 +26,7 @@
       ".read": true,
       "$timestamp": {
         ".write": true,
-        ".validate": "newData.hasChildren(['heartRate', 'timestamp', 'sampleTimestamp']) && newData.child('heartRate').isNumber() && newData.child('heartRate').val() >= 20 && newData.child('heartRate').val() <= 240 && newData.child('timestamp').isNumber() && newData.child('sampleTimestamp').isNumber()"
+        ".validate": "!newData.exists() || (newData.hasChildren(['heartRate', 'timestamp', 'sampleTimestamp']) && newData.child('heartRate').isNumber() && newData.child('heartRate').val() >= 20 && newData.child('heartRate').val() <= 240 && newData.child('timestamp').isNumber() && newData.child('sampleTimestamp').isNumber())"
       }
     }
   }

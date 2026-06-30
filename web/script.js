@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
-import { getDatabase, limitToLast, onValue, query, ref } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js";
+import { getDatabase, onValue, ref } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDxHshF7Z36b0LC4-xQJEu_tq-GFJVyoqw",
@@ -18,8 +18,11 @@ const statusText = document.getElementById("statusText");
 const updatedAt = document.getElementById("updatedAt");
 const sampleAt = document.getElementById("sampleAt");
 const chartRange = document.getElementById("chartRange");
+const chartScroller = document.getElementById("chartScroller");
 const historyChart = document.getElementById("historyChart");
 const chartContext = historyChart.getContext("2d");
+
+const HISTORY_WINDOW_MILLIS = 48 * 60 * 60 * 1000;
 
 let currentBpm = 0;
 let targetBpm = 0;
@@ -126,6 +129,7 @@ function applySnapshot(value) {
 
 function normalizeHistory(value) {
   if (!value || typeof value !== "object") return [];
+  const cutoff = Date.now() - HISTORY_WINDOW_MILLIS;
 
   return Object.values(value)
     .map(item => ({
@@ -136,11 +140,11 @@ function normalizeHistory(value) {
     .filter(item =>
       Number.isFinite(item.heartRate) &&
       Number.isFinite(item.timestamp) &&
+      item.timestamp >= cutoff &&
       item.heartRate >= 20 &&
       item.heartRate <= 240
     )
     .sort((a, b) => a.timestamp - b.timestamp)
-    .slice(-120);
 }
 
 function formatClock(timestamp) {
@@ -153,6 +157,10 @@ function formatClock(timestamp) {
 }
 
 function drawHistoryChart() {
+  const visibleWidth = chartScroller.clientWidth || 320;
+  const desiredCssWidth = Math.max(visibleWidth, Math.min(7200, historyPoints.length * 22));
+  historyChart.style.width = `${desiredCssWidth}px`;
+
   const rect = historyChart.getBoundingClientRect();
   const pixelRatio = window.devicePixelRatio || 1;
   const width = Math.max(1, Math.floor(rect.width * pixelRatio));
@@ -169,7 +177,7 @@ function drawHistoryChart() {
 
   const cssWidth = width / pixelRatio;
   const cssHeight = height / pixelRatio;
-  const padding = { top: 18, right: 18, bottom: 26, left: 34 };
+  const padding = { top: 18, right: 20, bottom: 46, left: 36 };
   const innerWidth = cssWidth - padding.left - padding.right;
   const innerHeight = cssHeight - padding.top - padding.bottom;
 
@@ -200,6 +208,10 @@ function drawHistoryChart() {
 
   const xFor = index => padding.left + (innerWidth * index) / (historyPoints.length - 1);
   const yFor = rate => padding.top + innerHeight - ((rate - minRate) / rateSpan) * innerHeight;
+  const pointFor = (point, index) => ({
+    x: xFor(index),
+    y: yFor(point.heartRate)
+  });
 
   chartContext.fillStyle = "rgba(255, 255, 255, 0.52)";
   chartContext.font = "11px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -211,26 +223,15 @@ function drawHistoryChart() {
   gradient.addColorStop(0, "rgba(255, 45, 85, 0.34)");
   gradient.addColorStop(1, "rgba(255, 45, 85, 0)");
 
-  chartContext.beginPath();
-  historyPoints.forEach((point, index) => {
-    const x = xFor(index);
-    const y = yFor(point.heartRate);
-    if (index === 0) chartContext.moveTo(x, y);
-    else chartContext.lineTo(x, y);
-  });
+  const points = historyPoints.map(pointFor);
+  drawSmoothPath(points);
   chartContext.lineTo(xFor(historyPoints.length - 1), padding.top + innerHeight);
   chartContext.lineTo(xFor(0), padding.top + innerHeight);
   chartContext.closePath();
   chartContext.fillStyle = gradient;
   chartContext.fill();
 
-  chartContext.beginPath();
-  historyPoints.forEach((point, index) => {
-    const x = xFor(index);
-    const y = yFor(point.heartRate);
-    if (index === 0) chartContext.moveTo(x, y);
-    else chartContext.lineTo(x, y);
-  });
+  drawSmoothPath(points);
   chartContext.strokeStyle = "#ff2d55";
   chartContext.lineWidth = 2.4;
   chartContext.lineJoin = "round";
@@ -248,9 +249,41 @@ function drawHistoryChart() {
   chartContext.arc(latestX, latestY, 4, 0, Math.PI * 2);
   chartContext.fill();
 
+  chartContext.shadowBlur = 0;
+  chartContext.fillStyle = "rgba(255, 255, 255, 0.64)";
+  chartContext.font = "10px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  chartContext.textAlign = "center";
+  const labelEvery = Math.max(1, Math.ceil(historyPoints.length / Math.max(4, Math.floor(cssWidth / 88))));
+  historyPoints.forEach((point, index) => {
+    if (index !== 0 && index !== historyPoints.length - 1 && index % labelEvery !== 0) return;
+    const x = xFor(index);
+    const y = yFor(point.heartRate);
+    chartContext.fillStyle = "rgba(255, 255, 255, 0.9)";
+    chartContext.beginPath();
+    chartContext.arc(x, y, 2.6, 0, Math.PI * 2);
+    chartContext.fill();
+    chartContext.fillStyle = "rgba(255, 255, 255, 0.62)";
+    chartContext.fillText(formatClock(point.sampleTimestamp || point.timestamp), x, padding.top + innerHeight + 20);
+  });
+
   const first = historyPoints[0];
   chartRange.textContent = `${formatClock(first.timestamp)} - ${formatClock(latest.timestamp)}`;
+  chartScroller.scrollLeft = chartScroller.scrollWidth;
   chartContext.restore();
+}
+
+function drawSmoothPath(points) {
+  chartContext.beginPath();
+  points.forEach((point, index) => {
+    if (index === 0) {
+      chartContext.moveTo(point.x, point.y);
+      return;
+    }
+
+    const previous = points[index - 1];
+    const controlX = previous.x + (point.x - previous.x) / 2;
+    chartContext.bezierCurveTo(controlX, previous.y, controlX, point.y, point.x, point.y);
+  });
 }
 
 function applyHistorySnapshot(value) {
@@ -263,7 +296,7 @@ function boot() {
     const app = initializeApp(firebaseConfig);
     const database = getDatabase(app);
     const liveRef = ref(database, "/");
-    const historyRef = query(ref(database, "/history"), limitToLast(120));
+    const historyRef = ref(database, "/history");
 
     onValue(
       liveRef,

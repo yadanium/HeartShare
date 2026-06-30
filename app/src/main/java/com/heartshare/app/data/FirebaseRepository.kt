@@ -23,6 +23,7 @@ class FirebaseRepository(
                     "history/${payload.timestamp}/timestamp" to payload.timestamp
                 )
             ).await()
+            trimOldHistory(payload.timestamp)
             Log.d(
                 TAG,
                 "Heart rate sent: ${payload.heartRate} bpm sample=${payload.sampleTimestamp} sync=${payload.timestamp}"
@@ -43,7 +44,31 @@ class FirebaseRepository(
         }
     }
 
+    private suspend fun trimOldHistory(now: Long) {
+        try {
+            val cutoff = now - HISTORY_RETENTION_MILLIS
+            val snapshot = liveRef.child("history")
+                .orderByChild("timestamp")
+                .endAt(cutoff.toDouble())
+                .get()
+                .await()
+
+            if (!snapshot.exists()) return
+
+            val removals = snapshot.children.associate { child ->
+                "history/${child.key}" to null
+            }
+            if (removals.isNotEmpty()) {
+                liveRef.updateChildren(removals).await()
+                Log.d(TAG, "Trimmed ${removals.size} old history points")
+            }
+        } catch (exception: Exception) {
+            Log.e(TAG, "Failed to trim old history", exception)
+        }
+    }
+
     companion object {
         private const val TAG = "FirebaseRepository"
+        private const val HISTORY_RETENTION_MILLIS = 48L * 60L * 60L * 1_000L
     }
 }
