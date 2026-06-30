@@ -132,7 +132,7 @@ function normalizeHistory(value) {
   if (!value || typeof value !== "object") return [];
   const cutoff = Date.now() - HISTORY_WINDOW_MILLIS;
 
-  return Object.values(value)
+  const sorted = Object.values(value)
     .map(item => ({
       heartRate: Number(item.heartRate),
       timestamp: Number(item.timestamp),
@@ -145,7 +145,15 @@ function normalizeHistory(value) {
       item.heartRate >= 20 &&
       item.heartRate <= 240
     )
-    .sort((a, b) => a.timestamp - b.timestamp)
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  return sorted.reduce((points, point) => {
+    const previous = points[points.length - 1];
+    if (!previous || previous.heartRate !== point.heartRate) {
+      points.push(point);
+    }
+    return points;
+  }, []);
 }
 
 function formatClock(timestamp) {
@@ -159,7 +167,7 @@ function formatClock(timestamp) {
 
 function drawHistoryChart() {
   const visibleWidth = chartScroller.clientWidth || 320;
-  const desiredCssWidth = Math.max(visibleWidth, 48 * 90);
+  const desiredCssWidth = Math.max(visibleWidth, Math.min(4800, Math.max(360, historyPoints.length * 132)));
   historyChart.style.width = `${desiredCssWidth}px`;
 
   const rect = historyChart.getBoundingClientRect();
@@ -192,7 +200,7 @@ function drawHistoryChart() {
     chartContext.stroke();
   }
 
-  if (historyPoints.length < 2) {
+  if (historyPoints.length < 1) {
     chartContext.fillStyle = "rgba(255, 255, 255, 0.64)";
     chartContext.font = "13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
     chartContext.textAlign = "center";
@@ -211,15 +219,13 @@ function drawHistoryChart() {
   const maxRate = Math.min(240, Math.ceil((midpoint + visibleSpan / 2) / 2) * 2);
   const rateSpan = Math.max(1, maxRate - minRate);
 
-  const windowEnd = Date.now();
-  const windowStart = windowEnd - HISTORY_WINDOW_MILLIS;
-  const xForTime = timestamp => {
-    const ratio = Math.max(0, Math.min(1, (timestamp - windowStart) / HISTORY_WINDOW_MILLIS));
-    return padding.left + innerWidth * ratio;
+  const xForIndex = index => {
+    if (historyPoints.length === 1) return padding.left + innerWidth / 2;
+    return padding.left + (innerWidth * index) / (historyPoints.length - 1);
   };
   const yFor = rate => padding.top + innerHeight - ((rate - minRate) / rateSpan) * innerHeight;
-  const pointFor = point => ({
-    x: xForTime(point.timestamp),
+  const pointFor = (point, index) => ({
+    x: xForIndex(index),
     y: yFor(point.heartRate)
   });
 
@@ -230,24 +236,26 @@ function drawHistoryChart() {
   gradient.addColorStop(1, "rgba(255, 45, 85, 0)");
 
   const points = historyPoints.map(pointFor);
-  drawSmoothPath(points);
-  chartContext.lineTo(points[points.length - 1].x, padding.top + innerHeight);
-  chartContext.lineTo(points[0].x, padding.top + innerHeight);
-  chartContext.closePath();
-  chartContext.fillStyle = gradient;
-  chartContext.fill();
+  if (points.length >= 2) {
+    drawSmoothPath(points);
+    chartContext.lineTo(points[points.length - 1].x, padding.top + innerHeight);
+    chartContext.lineTo(points[0].x, padding.top + innerHeight);
+    chartContext.closePath();
+    chartContext.fillStyle = gradient;
+    chartContext.fill();
 
-  drawSmoothPath(points);
-  chartContext.strokeStyle = "#ff2d55";
-  chartContext.lineWidth = 2.4;
-  chartContext.lineJoin = "round";
-  chartContext.lineCap = "round";
-  chartContext.shadowColor = "rgba(255, 45, 85, 0.8)";
-  chartContext.shadowBlur = 14;
-  chartContext.stroke();
+    drawSmoothPath(points);
+    chartContext.strokeStyle = "#ff2d55";
+    chartContext.lineWidth = 2.4;
+    chartContext.lineJoin = "round";
+    chartContext.lineCap = "round";
+    chartContext.shadowColor = "rgba(255, 45, 85, 0.8)";
+    chartContext.shadowBlur = 14;
+    chartContext.stroke();
+  }
 
   const latest = historyPoints[historyPoints.length - 1];
-  const latestX = xForTime(latest.timestamp);
+  const latestX = points[points.length - 1].x;
   const latestY = yFor(latest.heartRate);
   chartContext.shadowBlur = 18;
   chartContext.fillStyle = "#ffffff";
