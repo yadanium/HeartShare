@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
-import { getDatabase, onValue, ref } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js";
+import { getDatabase, limitToLast, onValue, query, ref } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDxHshF7Z36b0LC4-xQJEu_tq-GFJVyoqw",
@@ -17,6 +17,9 @@ const statusPill = document.getElementById("statusPill");
 const statusText = document.getElementById("statusText");
 const updatedAt = document.getElementById("updatedAt");
 const sampleAt = document.getElementById("sampleAt");
+const chartRange = document.getElementById("chartRange");
+const historyChart = document.getElementById("historyChart");
+const chartContext = historyChart.getContext("2d");
 
 let currentBpm = 0;
 let targetBpm = 0;
@@ -25,6 +28,7 @@ let latestSampleTimestamp = 0;
 let online = false;
 let hasReceivedValue = false;
 let animationFrameId = 0;
+let historyPoints = [];
 
 function setBeatDuration(bpm) {
   if (!Number.isFinite(bpm) || bpm <= 0) return;
@@ -120,11 +124,146 @@ function applySnapshot(value) {
   updateStatusFromData();
 }
 
+function normalizeHistory(value) {
+  if (!value || typeof value !== "object") return [];
+
+  return Object.values(value)
+    .map(item => ({
+      heartRate: Number(item.heartRate),
+      timestamp: Number(item.timestamp),
+      sampleTimestamp: Number(item.sampleTimestamp)
+    }))
+    .filter(item =>
+      Number.isFinite(item.heartRate) &&
+      Number.isFinite(item.timestamp) &&
+      item.heartRate >= 20 &&
+      item.heartRate <= 240
+    )
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .slice(-120);
+}
+
+function formatClock(timestamp) {
+  if (!timestamp) return "--:--";
+  return new Intl.DateTimeFormat("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  }).format(new Date(timestamp));
+}
+
+function drawHistoryChart() {
+  const rect = historyChart.getBoundingClientRect();
+  const pixelRatio = window.devicePixelRatio || 1;
+  const width = Math.max(1, Math.floor(rect.width * pixelRatio));
+  const height = Math.max(1, Math.floor(rect.height * pixelRatio));
+
+  if (historyChart.width !== width || historyChart.height !== height) {
+    historyChart.width = width;
+    historyChart.height = height;
+  }
+
+  chartContext.clearRect(0, 0, width, height);
+  chartContext.save();
+  chartContext.scale(pixelRatio, pixelRatio);
+
+  const cssWidth = width / pixelRatio;
+  const cssHeight = height / pixelRatio;
+  const padding = { top: 18, right: 18, bottom: 26, left: 34 };
+  const innerWidth = cssWidth - padding.left - padding.right;
+  const innerHeight = cssHeight - padding.top - padding.bottom;
+
+  chartContext.strokeStyle = "rgba(255, 255, 255, 0.14)";
+  chartContext.lineWidth = 1;
+  for (let i = 0; i <= 3; i += 1) {
+    const y = padding.top + (innerHeight / 3) * i;
+    chartContext.beginPath();
+    chartContext.moveTo(padding.left, y);
+    chartContext.lineTo(padding.left + innerWidth, y);
+    chartContext.stroke();
+  }
+
+  if (historyPoints.length < 2) {
+    chartContext.fillStyle = "rgba(255, 255, 255, 0.64)";
+    chartContext.font = "13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    chartContext.textAlign = "center";
+    chartContext.fillText("履歴を収集中", cssWidth / 2, cssHeight / 2);
+    chartRange.textContent = "履歴待ち";
+    chartContext.restore();
+    return;
+  }
+
+  const rates = historyPoints.map(point => point.heartRate);
+  const minRate = Math.max(20, Math.floor(Math.min(...rates) / 5) * 5 - 5);
+  const maxRate = Math.min(240, Math.ceil(Math.max(...rates) / 5) * 5 + 5);
+  const rateSpan = Math.max(1, maxRate - minRate);
+
+  const xFor = index => padding.left + (innerWidth * index) / (historyPoints.length - 1);
+  const yFor = rate => padding.top + innerHeight - ((rate - minRate) / rateSpan) * innerHeight;
+
+  chartContext.fillStyle = "rgba(255, 255, 255, 0.52)";
+  chartContext.font = "11px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  chartContext.textAlign = "right";
+  chartContext.fillText(String(maxRate), padding.left - 8, padding.top + 4);
+  chartContext.fillText(String(minRate), padding.left - 8, padding.top + innerHeight);
+
+  const gradient = chartContext.createLinearGradient(0, padding.top, 0, padding.top + innerHeight);
+  gradient.addColorStop(0, "rgba(255, 45, 85, 0.34)");
+  gradient.addColorStop(1, "rgba(255, 45, 85, 0)");
+
+  chartContext.beginPath();
+  historyPoints.forEach((point, index) => {
+    const x = xFor(index);
+    const y = yFor(point.heartRate);
+    if (index === 0) chartContext.moveTo(x, y);
+    else chartContext.lineTo(x, y);
+  });
+  chartContext.lineTo(xFor(historyPoints.length - 1), padding.top + innerHeight);
+  chartContext.lineTo(xFor(0), padding.top + innerHeight);
+  chartContext.closePath();
+  chartContext.fillStyle = gradient;
+  chartContext.fill();
+
+  chartContext.beginPath();
+  historyPoints.forEach((point, index) => {
+    const x = xFor(index);
+    const y = yFor(point.heartRate);
+    if (index === 0) chartContext.moveTo(x, y);
+    else chartContext.lineTo(x, y);
+  });
+  chartContext.strokeStyle = "#ff2d55";
+  chartContext.lineWidth = 2.4;
+  chartContext.lineJoin = "round";
+  chartContext.lineCap = "round";
+  chartContext.shadowColor = "rgba(255, 45, 85, 0.8)";
+  chartContext.shadowBlur = 14;
+  chartContext.stroke();
+
+  const latest = historyPoints[historyPoints.length - 1];
+  const latestX = xFor(historyPoints.length - 1);
+  const latestY = yFor(latest.heartRate);
+  chartContext.shadowBlur = 18;
+  chartContext.fillStyle = "#ffffff";
+  chartContext.beginPath();
+  chartContext.arc(latestX, latestY, 4, 0, Math.PI * 2);
+  chartContext.fill();
+
+  const first = historyPoints[0];
+  chartRange.textContent = `${formatClock(first.timestamp)} - ${formatClock(latest.timestamp)}`;
+  chartContext.restore();
+}
+
+function applyHistorySnapshot(value) {
+  historyPoints = normalizeHistory(value);
+  drawHistoryChart();
+}
+
 function boot() {
   try {
     const app = initializeApp(firebaseConfig);
     const database = getDatabase(app);
     const liveRef = ref(database, "/");
+    const historyRef = query(ref(database, "/history"), limitToLast(120));
 
     onValue(
       liveRef,
@@ -137,6 +276,15 @@ function boot() {
         updatedAt.textContent = "接続エラー";
       }
     );
+
+    onValue(
+      historyRef,
+      snapshot => applyHistorySnapshot(snapshot.val()),
+      error => {
+        console.error("Firebase history connection failed", error);
+        chartRange.textContent = "履歴エラー";
+      }
+    );
   } catch (error) {
     console.error("Firebase initialization failed", error);
     setStatus("offline");
@@ -145,6 +293,7 @@ function boot() {
 
   renderBpm();
   setInterval(updateStatusFromData, 1_000);
+  window.addEventListener("resize", drawHistoryChart);
 }
 
 if ("serviceWorker" in navigator) {

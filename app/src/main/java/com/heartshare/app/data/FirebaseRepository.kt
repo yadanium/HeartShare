@@ -17,7 +17,10 @@ class FirebaseRepository(
                     "heartRate" to payload.heartRate,
                     "sampleTimestamp" to payload.sampleTimestamp,
                     "timestamp" to payload.timestamp,
-                    "online" to payload.online
+                    "online" to payload.online,
+                    "history/${payload.timestamp}/heartRate" to payload.heartRate,
+                    "history/${payload.timestamp}/sampleTimestamp" to payload.sampleTimestamp,
+                    "history/${payload.timestamp}/timestamp" to payload.timestamp
                 )
             ).await()
             Log.d(
