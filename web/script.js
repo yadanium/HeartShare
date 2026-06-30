@@ -27,6 +27,9 @@ const chartContext = historyChart.getContext("2d");
 
 const HISTORY_WINDOW_MILLIS = 48 * 60 * 60 * 1000;
 const VISIBLE_WINDOW_MILLIS = 6 * 60 * 60 * 1000;
+const GRAPH_MIN_BPM = 60;
+const GRAPH_MID_BPM = 90;
+const GRAPH_MAX_BPM = 120;
 
 let currentBpm = 0;
 let targetBpm = 0;
@@ -215,13 +218,8 @@ function drawHistoryChart() {
     return;
   }
 
-  const rates = historyPoints.map(point => point.heartRate);
-  const rawMinRate = Math.min(...rates);
-  const rawMaxRate = Math.max(...rates);
-  const midpoint = (rawMinRate + rawMaxRate) / 2;
-  const visibleSpan = Math.max(12, rawMaxRate - rawMinRate + 8);
-  const minRate = Math.max(20, Math.floor((midpoint - visibleSpan / 2) / 2) * 2);
-  const maxRate = Math.min(240, Math.ceil((midpoint + visibleSpan / 2) / 2) * 2);
+  const minRate = GRAPH_MIN_BPM;
+  const maxRate = GRAPH_MAX_BPM;
   const rateSpan = Math.max(1, maxRate - minRate);
 
   const windowEnd = Date.now();
@@ -230,13 +228,16 @@ function drawHistoryChart() {
     const ratio = Math.max(0, Math.min(1, (timestamp - windowStart) / HISTORY_WINDOW_MILLIS));
     return padding.left + innerWidth * ratio;
   };
-  const yFor = rate => padding.top + innerHeight - ((rate - minRate) / rateSpan) * innerHeight;
+  const yFor = rate => {
+    const clampedRate = Math.max(minRate, Math.min(maxRate, rate));
+    return padding.top + innerHeight - ((clampedRate - minRate) / rateSpan) * innerHeight;
+  };
   const pointFor = point => ({
     x: xForTime(point.timestamp),
     y: yFor(point.heartRate)
   });
 
-  drawYAxisLabels({ minRate, maxRate });
+  drawYAxisLabels();
 
   const gradient = chartContext.createLinearGradient(0, padding.top, 0, padding.top + innerHeight);
   gradient.addColorStop(0, "rgba(255, 45, 85, 0.34)");
@@ -287,15 +288,13 @@ function drawHistoryChart() {
 }
 
 function resetYAxisLabels() {
-  axisMax.textContent = "--";
-  axisMid.textContent = "bpm";
-  axisMin.textContent = "--";
+  drawYAxisLabels();
 }
 
-function drawYAxisLabels({ minRate, maxRate }) {
-  axisMax.textContent = String(maxRate);
-  axisMid.textContent = `${Math.round((maxRate + minRate) / 2)} bpm`;
-  axisMin.textContent = String(minRate);
+function drawYAxisLabels() {
+  axisMax.textContent = String(GRAPH_MAX_BPM);
+  axisMid.textContent = `${GRAPH_MID_BPM} bpm`;
+  axisMin.textContent = String(GRAPH_MIN_BPM);
 }
 
 function drawPointLabels({ points, historyPoints, padding, innerHeight, chartHeight }) {

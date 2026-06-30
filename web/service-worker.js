@@ -1,4 +1,4 @@
-const CACHE_NAME = "heartshare-v5";
+const CACHE_NAME = "heartshare-v6";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
