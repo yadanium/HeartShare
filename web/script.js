@@ -23,6 +23,7 @@ const historyChart = document.getElementById("historyChart");
 const chartContext = historyChart.getContext("2d");
 
 const HISTORY_WINDOW_MILLIS = 48 * 60 * 60 * 1000;
+const VISIBLE_WINDOW_MILLIS = 6 * 60 * 60 * 1000;
 
 let currentBpm = 0;
 let targetBpm = 0;
@@ -167,7 +168,7 @@ function formatClock(timestamp) {
 
 function drawHistoryChart() {
   const visibleWidth = chartScroller.clientWidth || 320;
-  const desiredCssWidth = Math.max(visibleWidth, Math.min(4800, Math.max(360, historyPoints.length * 132)));
+  const desiredCssWidth = Math.max(visibleWidth, visibleWidth * (HISTORY_WINDOW_MILLIS / VISIBLE_WINDOW_MILLIS));
   historyChart.style.width = `${desiredCssWidth}px`;
 
   const rect = historyChart.getBoundingClientRect();
@@ -219,13 +220,15 @@ function drawHistoryChart() {
   const maxRate = Math.min(240, Math.ceil((midpoint + visibleSpan / 2) / 2) * 2);
   const rateSpan = Math.max(1, maxRate - minRate);
 
-  const xForIndex = index => {
-    if (historyPoints.length === 1) return padding.left + innerWidth / 2;
-    return padding.left + (innerWidth * index) / (historyPoints.length - 1);
+  const windowEnd = Date.now();
+  const windowStart = windowEnd - HISTORY_WINDOW_MILLIS;
+  const xForTime = timestamp => {
+    const ratio = Math.max(0, Math.min(1, (timestamp - windowStart) / HISTORY_WINDOW_MILLIS));
+    return padding.left + innerWidth * ratio;
   };
   const yFor = rate => padding.top + innerHeight - ((rate - minRate) / rateSpan) * innerHeight;
-  const pointFor = (point, index) => ({
-    x: xForIndex(index),
+  const pointFor = point => ({
+    x: xForTime(point.timestamp),
     y: yFor(point.heartRate)
   });
 
