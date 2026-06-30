@@ -173,12 +173,13 @@ body {
 
 .updated {
   width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px 14px;
-  text-align: center;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
   color: var(--muted);
   font-size: 14px;
+  text-align: center;
 }
 
 .updated strong {

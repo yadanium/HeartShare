@@ -15,7 +15,6 @@ const firebaseConfig = {
 const bpmValue = document.getElementById("bpmValue");
 const statusPill = document.getElementById("statusPill");
 const statusText = document.getElementById("statusText");
-const updatedAt = document.getElementById("updatedAt");
 const sampleAt = document.getElementById("sampleAt");
 const chartRange = document.getElementById("chartRange");
 const chartScroller = document.getElementById("chartScroller");
@@ -78,7 +77,6 @@ function formatRelativeTime(timestamp) {
 }
 
 function updateStatusFromData() {
-  updatedAt.textContent = formatRelativeTime(latestTimestamp);
   sampleAt.textContent = formatRelativeTime(latestSampleTimestamp);
 
   if (!hasReceivedValue) {
@@ -292,9 +290,9 @@ function resetYAxisLabels() {
 }
 
 function drawYAxisLabels() {
-  axisMax.textContent = String(GRAPH_MAX_BPM);
+  axisMax.textContent = `${GRAPH_MAX_BPM} bpm`;
   axisMid.textContent = `${GRAPH_MID_BPM} bpm`;
-  axisMin.textContent = String(GRAPH_MIN_BPM);
+  axisMin.textContent = `${GRAPH_MIN_BPM} bpm`;
 }
 
 function drawPointLabels({ points, historyPoints, padding, innerHeight, chartHeight }) {
@@ -442,7 +440,7 @@ function boot() {
         hasReceivedValue = false;
         online = false;
         setStatus("offline");
-        updatedAt.textContent = "接続エラー";
+        sampleAt.textContent = "接続エラー";
       }
     );
 
@@ -457,7 +455,7 @@ function boot() {
   } catch (error) {
     console.error("Firebase initialization failed", error);
     setStatus("offline");
-    updatedAt.textContent = "設定エラー";
+    sampleAt.textContent = "設定エラー";
   }
 
   renderBpm();
