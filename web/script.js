@@ -178,7 +178,7 @@ function drawHistoryChart() {
 
   const cssWidth = width / pixelRatio;
   const cssHeight = height / pixelRatio;
-  const padding = { top: 18, right: 20, bottom: 46, left: 36 };
+  const padding = { top: 26, right: 24, bottom: 48, left: 48 };
   const innerWidth = cssWidth - padding.left - padding.right;
   const innerHeight = cssHeight - padding.top - padding.bottom;
 
@@ -223,11 +223,7 @@ function drawHistoryChart() {
     y: yFor(point.heartRate)
   });
 
-  chartContext.fillStyle = "rgba(255, 255, 255, 0.52)";
-  chartContext.font = "11px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-  chartContext.textAlign = "right";
-  chartContext.fillText(String(maxRate), padding.left - 8, padding.top + 4);
-  chartContext.fillText(String(minRate), padding.left - 8, padding.top + innerHeight);
+  drawYAxisLabels({ padding, innerHeight, minRate, maxRate });
 
   const gradient = chartContext.createLinearGradient(0, padding.top, 0, padding.top + innerHeight);
   gradient.addColorStop(0, "rgba(255, 45, 85, 0.34)");
@@ -259,23 +255,12 @@ function drawHistoryChart() {
   chartContext.arc(latestX, latestY, 4, 0, Math.PI * 2);
   chartContext.fill();
 
-  chartContext.shadowBlur = 0;
-  chartContext.fillStyle = "rgba(255, 255, 255, 0.64)";
-  chartContext.font = "10px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-  chartContext.textAlign = "center";
-  const labelEvery = Math.max(1, Math.ceil(historyPoints.length / Math.max(6, Math.floor(cssWidth / 92))));
-  historyPoints.forEach((point, index) => {
-    if (index !== 0 && index !== historyPoints.length - 1 && index % labelEvery !== 0) return;
-    const x = xForTime(point.timestamp);
-    const y = yFor(point.heartRate);
-    chartContext.fillStyle = "rgba(255, 255, 255, 0.9)";
-    chartContext.beginPath();
-    chartContext.arc(x, y, 3.4, 0, Math.PI * 2);
-    chartContext.fill();
-    chartContext.fillStyle = "rgba(255, 255, 255, 0.62)";
-    chartContext.fillText(formatClock(point.sampleTimestamp || point.timestamp), x, padding.top + innerHeight + 20);
-    chartContext.fillStyle = "rgba(255, 255, 255, 0.86)";
-    chartContext.fillText(`${Math.round(point.heartRate)}`, x, Math.max(12, y - 9));
+  drawPointLabels({
+    points,
+    historyPoints,
+    padding,
+    innerHeight,
+    chartHeight: cssHeight
   });
 
   const first = historyPoints[0];
@@ -284,6 +269,138 @@ function drawHistoryChart() {
     chartScroller.scrollLeft = chartScroller.scrollWidth;
   }
   chartContext.restore();
+}
+
+function drawYAxisLabels({ padding, innerHeight, minRate, maxRate }) {
+  chartContext.save();
+  chartContext.shadowBlur = 0;
+  chartContext.fillStyle = "rgba(255, 255, 255, 0.54)";
+  chartContext.font = "10px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  chartContext.textAlign = "right";
+  chartContext.textBaseline = "middle";
+
+  const ticks = [maxRate, Math.round((maxRate + minRate) / 2), minRate];
+  ticks.forEach((tick, index) => {
+    const y = padding.top + (innerHeight / 2) * index;
+    chartContext.fillText(`${tick} bpm`, padding.left - 8, y);
+  });
+
+  chartContext.fillStyle = "rgba(255, 255, 255, 0.72)";
+  chartContext.textAlign = "left";
+  chartContext.textBaseline = "top";
+  chartContext.fillText("bpm", padding.left, 6);
+  chartContext.restore();
+}
+
+function drawPointLabels({ points, historyPoints, padding, innerHeight, chartHeight }) {
+  chartContext.save();
+  chartContext.shadowBlur = 0;
+  chartContext.textAlign = "center";
+  chartContext.textBaseline = "middle";
+
+  const occupied = [];
+  const timeLabelEvery = Math.max(1, Math.ceil(historyPoints.length / Math.max(5, Math.floor(historyChart.clientWidth / 120))));
+
+  points.forEach((point, index) => {
+    chartContext.fillStyle = "rgba(255, 255, 255, 0.94)";
+    chartContext.beginPath();
+    chartContext.arc(point.x, point.y, 3.4, 0, Math.PI * 2);
+    chartContext.fill();
+
+    const bpmLabel = `${Math.round(historyPoints[index].heartRate)}`;
+    const labelWidth = Math.max(22, chartContext.measureText(bpmLabel).width + 12);
+    const preferredAbove = index % 2 === 0;
+    const labelY = chooseLabelY({
+      x: point.x,
+      y: point.y,
+      width: labelWidth,
+      height: 18,
+      preferredAbove,
+      occupied,
+      minY: padding.top + 9,
+      maxY: padding.top + innerHeight - 9
+    });
+
+    drawRoundedLabel({
+      text: bpmLabel,
+      x: point.x,
+      y: labelY,
+      width: labelWidth,
+      height: 18
+    });
+    occupied.push({
+      left: point.x - labelWidth / 2,
+      right: point.x + labelWidth / 2,
+      top: labelY - 9,
+      bottom: labelY + 9
+    });
+
+    const shouldDrawTime = index === 0 || index === points.length - 1 || index % timeLabelEvery === 0;
+    if (!shouldDrawTime) return;
+
+    const timeText = formatClock(historyPoints[index].sampleTimestamp || historyPoints[index].timestamp);
+    const timeWidth = chartContext.measureText(timeText).width + 8;
+    const timeBox = {
+      left: point.x - timeWidth / 2,
+      right: point.x + timeWidth / 2,
+      top: padding.top + innerHeight + 10,
+      bottom: Math.min(chartHeight - 4, padding.top + innerHeight + 28)
+    };
+
+    if (occupied.some(box => boxesOverlap(box, timeBox))) return;
+
+    chartContext.fillStyle = "rgba(255, 255, 255, 0.62)";
+    chartContext.font = "10px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    chartContext.fillText(timeText, point.x, padding.top + innerHeight + 20);
+    occupied.push(timeBox);
+  });
+
+  chartContext.restore();
+}
+
+function chooseLabelY({ x, y, width, height, preferredAbove, occupied, minY, maxY }) {
+  const offsets = preferredAbove ? [-18, 18, -34, 34, -50, 50] : [18, -18, 34, -34, 50, -50];
+
+  for (const offset of offsets) {
+    const candidateY = Math.max(minY, Math.min(maxY, y + offset));
+    const candidate = {
+      left: x - width / 2,
+      right: x + width / 2,
+      top: candidateY - height / 2,
+      bottom: candidateY + height / 2
+    };
+    if (!occupied.some(box => boxesOverlap(box, candidate))) return candidateY;
+  }
+
+  return Math.max(minY, Math.min(maxY, y + (preferredAbove ? -18 : 18)));
+}
+
+function drawRoundedLabel({ text, x, y, width, height }) {
+  const left = x - width / 2;
+  const top = y - height / 2;
+  const radius = 6;
+
+  chartContext.beginPath();
+  chartContext.moveTo(left + radius, top);
+  chartContext.lineTo(left + width - radius, top);
+  chartContext.quadraticCurveTo(left + width, top, left + width, top + radius);
+  chartContext.lineTo(left + width, top + height - radius);
+  chartContext.quadraticCurveTo(left + width, top + height, left + width - radius, top + height);
+  chartContext.lineTo(left + radius, top + height);
+  chartContext.quadraticCurveTo(left, top + height, left, top + height - radius);
+  chartContext.lineTo(left, top + radius);
+  chartContext.quadraticCurveTo(left, top, left + radius, top);
+  chartContext.closePath();
+  chartContext.fillStyle = "rgba(255, 45, 85, 0.82)";
+  chartContext.fill();
+
+  chartContext.fillStyle = "#ffffff";
+  chartContext.font = "11px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  chartContext.fillText(text, x, y + 0.5);
+}
+
+function boxesOverlap(a, b) {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }
 
 function drawSmoothPath(points) {
